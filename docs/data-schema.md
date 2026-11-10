@@ -6,7 +6,7 @@ tags: [data, analytics, zerno7]
 
 # Схема данных и события
 
-Готовые данные лежат в `js/data.js` (корень репозитория). Здесь описаны их форма и правила. Страницы и поведение — [architecture.md](architecture.md).
+Готовые данные лежат в `js/data.js` (корень репозитория). Здесь описаны их форма и правила. Поведение и файлы — [architecture.md](architecture.md).
 
 ## 1. Сущности
 
@@ -14,64 +14,101 @@ tags: [data, analytics, zerno7]
 
 | Поле | Тип | Источник | Примечание |
 |---|---|---|---|
-| `brand` | `{name, schoolSince, cafeSeats, ownRoastery, hours{days, open, close}}` | ТЗ, раздел 2 | «Пн–Вс 08:00–22:00» |
+| `brand` | `{name, operator, legal{inn, kpp, ogrn}, schoolSince, cafeSeats, ownRoastery, hours, tagline, heroOffer, thanksNext}` | ТЗ: шапка, раздел 2, Приложение А | «Пн–Вс 08:00–22:00» |
 | `school` | `{classMachines: 3, groupMax: 6}` | ТЗ | |
-| `courses[]` | `{id, title, lessons, lessonHours, priceRub, maxPeople, subtitle?}` | ТЗ | `null` = в ТЗ не указано; **не заменять догадкой** |
-| `intakes[]` | `{id, courseId, date, capacity, seatsFree}` | даты — ТЗ; `seatsFree` — **демо** | `id = <courseId>-<YYYY-MM-DD>` |
+| `contacts` | `{phone, phoneHref, email, address, mapService, mapUrl, telegram, whatsapp}` | шапка ТЗ; `telegram` взят из контактов руководителя школы, `whatsapp` собран из основного номера | адрес вымышленный, карта его не найдёт |
+| `social[]` | `{id, title, url}` | Instagram `zerno7_coffee` назван в ТЗ; VK и Telegram по тому же имени | заменить реальными ссылками на этапе 4 |
+| `courses[]` | `{id, title, lessons, lessonHours, priceRub, maxPeople, subtitle?, program?}` | ТЗ; `program` — темы занятий | `id` ∈ `barista_basic`, `latte_art`, `alternative`, `corporate`; `null` = не указано |
+| `startMonths[]` | `{id, title}` | ТЗ 6.1 | `dec_2026`, `jan_2027`, `feb_2027` |
+| `intakes[]` | `{id, courseId, date, startMonth, capacity, seatsFree}` | даты ТЗ; `seatsFree` — условные числа | `id = <courseId>_<YYYY-MM-DD>` |
 | `menuFilters[]` | `{id, title}` | ТЗ 3.2 | `coffee`, `tea`, `dessert`, `lactose-free` |
-| `menu[]` | `{id, title, category, priceRub?, priceFromRub?, volumeMl, lactoseFree}` | ТЗ | `lactoseFree: null` = неизвестно |
-| `beans[]` | `{id, title, weightG, priceFromRub}` | ТЗ | сорта придумывать нельзя |
-| `contacts` | `{phone, email, telegram, whatsapp, address, mapUrl}` | **заполнить (T0.1)** | |
-| `social[]` | `{id, title, url}` | **заполнить (T0.1)** | |
-| `teachers[]` | `{id, name, role, about}` | **заполнить (T0.1)** | |
+| `menu[]` | `{id, title, category, priceRub?, priceFromRub?, volumeMl, lactoseFree}` | 24 позиции: 12 кофе, 6 чая и матчи, 6 десертов | `lactoseFree` — `true` или `false`; фильтр «без лактозы» берёт `true` |
+| `beans[]` | `{id, title, country, process, taste, roastLevel, weightG, priceFromRub}` | 6 сортов | `roastLevel` ∈ `light`, `medium`, `dark` → параметр `roast_level` |
+| `teachers[]` | `{id, name, role, experience}` | 3 преподавателя | |
+| `faq[]` | `{q, a}` | 5 вопросов | |
 | `promo.latteArt` | `{code: "LATTE10", courseId}` | ТЗ | размер скидки не называть |
-| `quiz` | `{tieBreak[], questions[{id, text, answers[{text, points{courseId: n}}]}]}` | [quiz.md](quiz.md) | |
+| `form` | `{endpoint}` | этап 3 | `null` = демо-режим |
+| `analytics` | `{measurementId}` | этап 2 | `null` пока нет ресурса GA4 |
+| `quiz` | `{tieBreak[], questions[{id, text, answers[{text, points{course: n}}]}]}` | [quiz.md](quiz.md) | |
 
 Правила:
 
-- **Цены.** Единственные допустимые суммы на сайте: 140, 180, 190, 240, 260, 280, 690 (меню и зерно), 5 900, 8 900, 14 900, 24 000 ₽ (курсы). `tools/check.py` ищет в HTML любые суммы с ₽ и ругается на остальные.
-- **`null` и пустые массивы.** Если контакт `null`, блок не заполняется выдумкой: либо автор ТЗ заполнил данные до запуска, либо агент записывает пробел в README, раздел «Пробелы».
-- **Места.** Состояние потока: `seatsFree > 0` — «открыт», иначе «мест нет». У закрытого потока в разметке `aria-disabled="true"`, в обработчике клика проверка, ссылка не ведёт на форму.
+- **Цены.** Допустимы только суммы, которые есть в `js/data.js` (`priceRub`, `priceFromRub`). `tools/check.py` собирает их оттуда, ищет в HTML любые суммы с ₽ и ругается на остальные.
+- **`null` и пустые массивы.** Если значения нет, блок не заполняется выдумкой: пробел записывается в README, раздел «Пробелы».
+- **Места.** `seatsFree > 0` — поток открыт. Иначе «мест нет»: `aria-disabled="true"`, обработчик клика ничего не делает, ссылка не ведёт на форму.
 
-## 2. Заявка (не хранится)
+## 2. Данные заявки (раздел 6 ТЗ)
 
-```
-Lead {
-  id:        "Z7-" + ГГММДД + "-" + 4 случайные цифры     // Z7-261108-4821
-  name:      string, обязательное
-  phone:     string, обязательное
-  email:     string | ""
-  courseId:  id из courses, обязательное
-  intakeId:  id из intakes | ""            // обязательно, если у курса есть потоки
-  promo:     string | ""
-  comment:   string | ""
-  consent:   true                          // без true отправка невозможна
-}
-```
+Заявка уходит приёмнику (Apps Script, этап 3) как JSON. Лист «Zerno7 — Leads», лист `leads`, столбцы по порядку: `request_id`, `created_at`, `name`, `phone`, `email`, `course`, `start_month`, `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `status`. `created_at` и `status = new` ставит приёмник, значение `status` из браузера он игнорирует.
 
-Объект живёт только в памяти страницы до перехода на `thanks.html?id=<Lead.id>`. Номер заявки — единственное, что передаётся дальше.
+С сайта отправляются:
 
-## 3. Каталог событий
+| Поле | Откуда | Правила |
+|---|---|---|
+| `request_id` | `form.js`: `REQ-` + UUID | обязательно |
+| `name` | поле формы | 2–60 символов, обязательно |
+| `phone` | поле формы | «+7 и 10 цифр», обязательно |
+| `email` | поле формы | необязательно; если есть, формат адреса |
+| `course` | поле формы | `barista_basic`, `latte_art`, `alternative`, `corporate` |
+| `start_month` | поле формы | `dec_2026`, `jan_2027`, `feb_2027` |
+| `utm_source` | `sessionStorage`, иначе `direct` | |
+| `utm_medium` | `sessionStorage`, иначе `none` | |
+| `utm_campaign` | `sessionStorage`, иначе `not_set` | |
+| `utm_content` | `sessionStorage`, иначе `not_set` | |
 
-Каждое событие: `Z7.track(name, params)`. Имена **ровно такие**, как в таблице 3.2 ТЗ.
+Все строки не длиннее 200 символов. Согласие на обработку данных проверяется на сайте и в приёмник не передаётся как отдельный столбец. Объект заявки живёт в памяти страницы до отправки; на `thanks.html` передаётся только `request_id`.
 
-| Событие | Когда срабатывает | Параметры | Страницы |
-|---|---|---|---|
-| `contact_click` | клик по `tel:` или `mailto:` | `method` (`phone`/`email`), `place` (`header`/`footer`/`contacts`) | index, contacts |
-| `cta_click` | клик по кнопке призыва | `cta_id` (`hero-enroll`, `repeat-enroll`, `beans-order`, `guide-enroll`), `page` | index, beans, latte-guide |
-| `view_course` | клик «Подробнее» у курса | `course_id` | index, courses |
-| `quiz_complete` | показан результат теста | `result_course_id`, `answers` (например `"0,2,1,3"`) | index |
-| `gallery_view` | открыт или перелистнут снимок | `index` | index |
-| `social_click` | клик по соцсети | `network` | index, thanks |
-| `select_course_date` | выбран поток | `course_id`, `intake_id` | courses |
-| `file_download` | клик по PDF | `file_name` | courses, latte-guide |
-| `menu_filter` | смена фильтра | `filter_id` | menu |
-| `map_open` | клик по ссылке на карту | — | menu |
-| `bean_view` | открыта карточка зерна | `bean_id` | beans |
-| `promo_copy` | код скопирован | `code` | latte-guide |
-| `generate_lead` | форма успешно отправлена | `course_id`, `intake_id`, `lead_id` | contacts |
-| `messenger_click` | клик Telegram или WhatsApp | `messenger` (`telegram`/`whatsapp`) | contacts |
+Ответ приёмника: `{"ok": true}` или `{"ok": false, "error": "…"}`.
 
-Как проверить вручную: открыть страницу с `?debug=1`, в консоли смотреть строки `[track]`, либо ввести `dataLayer` и посмотреть массив.
+## 3. Каталог событий (ТЗ 4.2)
 
-Related: [spec.md](spec.md), [architecture.md](architecture.md), [quiz.md](quiz.md), [tasks.md](tasks.md)
+Сайт отправляет 20 событий: 6 собирает расширенная статистика GA4 без кода, 14 программирует исполнитель; обязательны 18, события «по выбору» дают дополнительные баллы. Все вызовы `gtag('event', …)` находятся в `js/analytics.js` ([architecture.md](architecture.md), раздел 6).
+
+| № | Событие | Тип | Когда отправляется | Параметры | Как |
+|---|---|---|---|---|---|
+| 1 | `page_view` | авто | открытие любой страницы | `page_location`, `page_title` | GA4 |
+| 2 | `scroll` | авто | прокрутка до 90 % | `percent_scrolled` | GA4 |
+| 3 | `click` | авто | переход по ссылке на внешний сайт | `link_url`, `outbound` | GA4 |
+| 4 | `file_download` | авто | скачивание PDF | `file_name`, `file_extension` | GA4 |
+| 5 | `form_start` | авто | первое взаимодействие с формой | `form_id` | GA4 |
+| 6 | `form_submit` | авто | отправка формы | `form_id` | GA4 |
+| 7 | `generate_lead` (ключевое) | рекоменд. | приёмник ответил `ok: true` | `lead_course`, `lead_source` | `Z7.track` в `form.js` |
+| 8 | `cta_click` | своё | клик по любой кнопке заявки | `button_name`, `page_section` | `data-event` |
+| 9 | `view_course` | своё | клик по карточке курса | `course_name` | `data-event` |
+| 10 | `select_course_date` | своё | кнопка «Выбрать поток» | `course_name`, `start_date` | `data-event` |
+| 11 | `quiz_complete` | своё | завершение теста | `quiz_result` | `Z7.track` в `quiz.js` |
+| 12 | `menu_filter` | своё | изменение фильтра меню | `filter_value` | `data-event` |
+| 13 | `bean_view` | своё | клик по карточке сорта | `bean_name`, `roast_level` | `data-event` |
+| 14 | `promo_copy` | своё | копирование промокода | `promo_code` | `data-event` |
+| 15 | `contact_click` (ключевое) | своё | клик по телефону или e-mail | `contact_type` | `data-event` |
+| 16 | `messenger_click` (ключевое) | своё | клик Telegram или WhatsApp | `messenger` | `data-event` |
+| 17 | `social_click` | своё | клик по иконке соцсети в подвале или на `thanks.html` | `network`, `page_section` | `data-event` |
+| 18 | `form_error` | своё | форма не отправлена из-за ошибки поля | `field_name`, `error_type` | `Z7.track` в `form.js` |
+| 19 | `map_open` (по выбору) | своё | клик по ссылке на карту | `map_service` | `data-event` |
+| 20 | `gallery_view` (по выбору) | своё | открытие фото в галерее | `photo_index` | `data-event` |
+
+Значения параметров:
+
+| Параметр | Значения |
+|---|---|
+| `course_name`, `lead_course`, `quiz_result` | код курса: `barista_basic`, `latte_art`, `alternative`, `corporate` |
+| `start_date` | дата потока `YYYY-MM-DD` |
+| `lead_source` | значение `utm_source` из `sessionStorage`, иначе `direct` |
+| `button_name` | `header_enroll`, `hero_trial`, `quiz_enroll`, `repeat_enroll`, `beans_order`, `guide_enroll` и подобные в `snake_case` |
+| `page_section` | `header`, `hero`, `courses`, `quiz`, `repeat_cta`, `footer`, `beans`, `guide`, `thanks` и подобные |
+| `filter_value` | `coffee`, `tea`, `dessert`, `lactose-free`; дефис в значении допустим, правило `snake_case` касается имён, не значений |
+| `bean_name`, `roast_level` | `id` сорта из `data.js`; `light`, `medium`, `dark` |
+| `contact_type` | `phone`, `email` |
+| `messenger` | `telegram`, `whatsapp` |
+| `network` | `id` соцсети из `data.js` (`instagram` и т. п.) |
+| `error_type`, `field_name` | `empty`, `format`, `consent`, `server`; `name` поля формы |
+| `map_service` | `yandex` |
+| `photo_index` | номер фото в галерее, с 1 |
+
+Правила (ТЗ 4.3): имена в `snake_case`, не длиннее 40 символов; значения не длиннее 100; **имя, телефон и e-mail посетителя в GA4 не передаются ни в параметрах, ни в адресе страницы**; `generate_lead` отправляется только после ответа `ok: true`.
+
+Следующий этап (GA4, раздел 4.4) регистрирует 7 пользовательских параметров: `button_name`, `page_section`, `course_name`, `quiz_result`, `lead_course`, `bean_name`, `messenger`. Они обязаны присутствовать в событиях уже сейчас.
+
+Журнал `docs/events.md`: по строке на событие, поля — имя, где отправляется (файл и строка), параметры с примерами значений. Ведёт исполнитель.
+
+Related: [spec.md](spec.md), [architecture.md](architecture.md), [quiz.md](quiz.md), [scope-site.md](scope-site.md), [tasks.md](tasks.md)
