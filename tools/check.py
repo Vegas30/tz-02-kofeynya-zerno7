@@ -24,13 +24,19 @@ ROOT = Path(__file__).resolve().parent.parent
 PAGES = ["index", "courses", "menu", "beans", "latte-guide", "contacts", "thanks", "privacy"]
 ALL_PAGES = PAGES + ["404"]
 MENU_PAGES = ["index", "courses", "menu", "beans", "contacts"]
-ALLOWED_RUB = {140, 180, 190, 240, 260, 280, 690, 5900, 8900, 14900, 24000}
-EVENTS = ["contact_click", "cta_click", "view_course", "quiz_complete", "gallery_view",
-          "social_click", "select_course_date", "file_download", "menu_filter", "map_open",
-          "bean_view", "promo_copy", "generate_lead", "messenger_click"]
+# Допустимые суммы берутся из js/data.js (priceRub, priceFromRub); запасной список — из сокращённого ТЗ.
+FALLBACK_RUB = {140, 180, 190, 240, 260, 280, 690, 5900, 8900, 14900, 24000}
+# События, которые программирует исполнитель (ТЗ 4.2). file_download, page_view, scroll, click,
+# form_start, form_submit собирает расширенная статистика GA4, кода не требуют.
+REQUIRED_EVENTS = ["generate_lead", "cta_click", "view_course", "select_course_date", "quiz_complete",
+                   "menu_filter", "bean_view", "promo_copy", "contact_click", "messenger_click",
+                   "social_click", "form_error"]
+OPTIONAL_EVENTS = ["map_open", "gallery_view"]  # «по выбору»: дают дополнительные баллы
+FORM_FIELDS = ["name", "phone", "email", "course", "start_month", "request_id",
+               "utm_source", "utm_medium", "utm_campaign", "utm_content"]
 BRAND_COLORS = ["#7a4a2a", "#f6efe6", "#24211f"]
 MAX_IMG = 300 * 1024
-SKIP_DIRS = {".git", "docs", "tools", "node_modules", ".obsidian", ".vercel"}
+SKIP_DIRS = {".git", "docs", "tools", "node_modules", ".obsidian", ".vercel", "screens", "apps-script"}
 
 results = []  # (уровень, сообщение)
 
@@ -97,7 +103,8 @@ class Page(HTMLParser):
             self.anchors.append(a)
             if self._form and "privacy.html" in a.get("href", ""):
                 self.form_privacy = True
-        elif tag == "input":
+        elif tag in ("input", "select", "textarea"):
+            a["_tag"] = tag
             self.inputs.append(a)
         elif tag == "h1":
             self.h1 += 1
@@ -177,7 +184,18 @@ def site_files(exts):
     return out
 
 
+def data_js_text():
+    p = ROOT / "js/data.js"
+    return read(p) if p.exists() else ""
+
+
+def allowed_prices():
+    found = {int(x) for x in re.findall(r"price(?:From)?Rub:\s*(\d+)", data_js_text())}
+    return found or FALLBACK_RUB
+
+
 def main():
+    allowed = allowed_prices()
     # 1. Обязательные файлы
     # Отсутствующая страница весит как 6 провалов: иначе её непройденные проверки просто не считались бы.
     for page in ALL_PAGES:
@@ -186,7 +204,8 @@ def main():
             ok(f"Файл {name} на месте")
         else:
             fail(f"Нет файла {name} (его проверки не выполнялись)", 6)
-    for name in ["README.md", "js/data.js", "docs/prompts.md", "docs/quiz.md", "docs/images.md"]:
+    for name in ["README.md", "js/data.js", "js/analytics.js", "js/form.js", "docs/prompts.md",
+                 "docs/quiz.md", "docs/images.md", "docs/events.md"]:
         check((ROOT / name).exists(), f"Файл {name} на месте", f"Нет файла {name}")
 
     pages = {}
@@ -197,6 +216,19 @@ def main():
             raw = read(p)
             parser.feed(raw)
             pages[name] = (p, raw, parser)
+
+    # 1а. Файлы из Приложения А
+    check((ROOT / "files/program-barista.pdf").exists(), "files/program-barista.pdf на месте",
+          "нет files/program-barista.pdf (путь задан в Приложении А)")
+    if "courses" in pages:
+        check(any("program-barista.pdf" in a.get("href", "") for a in pages["courses"][2].anchors),
+              "courses: есть ссылка на program-barista.pdf", "courses: нет ссылки на files/program-barista.pdf")
+    if "latte-guide" in pages:
+        check(any(a.get("href", "").lower().endswith(".pdf") for a in pages["latte-guide"][2].anchors),
+              "latte-guide: есть ссылка на PDF гида", "latte-guide: нет ссылки на PDF гида")
+    if "index" in pages:
+        n_img = len(pages["index"][2].imgs)
+        check(n_img >= 6, f"index: {n_img} изображений (галерея 6–8)", f"index: {n_img} изображений, а в галерее нужно 6–8", "WARN")
 
     # 2. SEO и разметка
     titles, descs = {}, {}
@@ -255,6 +287,9 @@ def main():
             check(any("required" in b["_has"] for b in boxes), "флажок согласия обязателен (required)",
                   "у флажка согласия нет required (JS-проверку проверьте вручную)", "WARN")
         check(pg.form_privacy, "в форме есть ссылка на privacy.html", "в форме нет ссылки на privacy.html")
+        names = {i.get("name", "") for i in pg.inputs}
+        miss = [f for f in FORM_FIELDS if f not in names]
+        check(not miss, "в форме есть все поля из ТЗ 6.3", "в форме нет полей: " + ", ".join(miss))
 
     # 5. Скрипты и локальные ссылки
     for name, (p, raw, pg) in pages.items():
@@ -285,7 +320,7 @@ def main():
         text = " ".join(pg.text)
         for m in re.finditer(r"(\d{1,3}(?:[\s\u00a0\u202f]\d{3})+|\d+)[\s\u00a0\u202f]*(?:₽|руб)", text):
             val = int(re.sub(r"\D", "", m.group(1)))
-            if val not in ALLOWED_RUB:
+            if val not in allowed:
                 seen_bad.add((name, val))
         if re.search(r"скидк\w*.{0,40}\d+\s*%|\d+\s*%.{0,40}скидк", text, re.I | re.S):
             warn(f"{name}: назван размер скидки в процентах, в ТЗ он не указан")
@@ -296,7 +331,7 @@ def main():
     ph = re.compile(r"\blorem\b|\bipsum\b|Ваш текст|Заголовок\b|\bXXX\b", re.I)
     hit = []
     for f in site_files({".html", ".js", ".css", ".md"}):
-        if f.name == "data.js":
+        if f.name in ("data.js", "AGENTS.md"):
             continue
         m = ph.search(read(f))
         if m:
@@ -338,11 +373,32 @@ def main():
         check(dims == (1200, 630), f"og:image {t.name}: 1200×630",
               f"og:image {t.name}: размер {dims}, нужно 1200×630" if dims else f"og:image {t.name}: не удалось прочитать размер")
 
-    # 9. События
+    # 9. События и аналитика
     code = "\n".join(read(f) for f in site_files({".js", ".html"}) if f.name != "data.js")
-    missing = [e for e in EVENTS if e not in code]
-    check(not missing, f"все {len(EVENTS)} событий найдены в коде", "нет в коде событий: " + ", ".join(missing))
-    check("dataLayer" in code, "события уходят в dataLayer", "в коде нет dataLayer")
+    missing = [e for e in REQUIRED_EVENTS if e not in code]
+    check(not missing, f"все {len(REQUIRED_EVENTS)} обязательных событий найдены в коде",
+          "нет в коде обязательных событий: " + ", ".join(missing))
+    missing_opt = [e for e in OPTIONAL_EVENTS if e not in code]
+    check(not missing_opt, "события «по выбору» есть (map_open, gallery_view)",
+          "нет событий «по выбору»: " + ", ".join(missing_opt) + " (дают +2 балла каждое)", "WARN")
+    an = ROOT / "js/analytics.js"
+    if an.exists():
+        at = read(an)
+        check("dataLayer" in at and "gtag" in at, "analytics.js: заглушка gtag и dataLayer", "в analytics.js нет gtag и dataLayer")
+        check("sessionStorage" in at, "analytics.js сохраняет UTM в sessionStorage", "в analytics.js нет sessionStorage (ТЗ 6.3)")
+    stray = [f.relative_to(ROOT).as_posix() for f in site_files({".js", ".html"})
+             if f.name not in ("analytics.js", "data.js") and re.search(r"gtag\(\s*['\"]event", read(f))]
+    check(not stray, "gtag('event') вызывается только в js/analytics.js",
+          "gtag('event') вне analytics.js (ТЗ 4.3): " + ", ".join(stray))
+    n_attr = sum(read(f).count("data-event=") for f in site_files({".html"}))
+    check(n_attr >= 10, f"в разметке {n_attr} элементов data-event", f"в разметке только {n_attr} data-event (ожидается не меньше 10)", "WARN")
+    for name, (p, raw, pg) in pages.items():
+        check("ga4:start" in raw and "ga4:end" in raw, f"{name}: есть слот для тега GA4", f"{name}: нет слота <!-- ga4:start --><!-- ga4:end --> в <head>", "WARN")
+    js_lines = sum(len(read(f).splitlines()) for f in site_files({".js"}) if f.name != "data.js")
+    check(js_lines <= 600, f"JS (без data.js): {js_lines} строк", f"JS (без data.js): {js_lines} строк, цель до 600: на приёмке вы объясняете каждую строку", "WARN")
+    ev = read(ROOT / "docs/events.md") if (ROOT / "docs/events.md").exists() else ""
+    gap = [e for e in REQUIRED_EVENTS if e not in ev]
+    check(not gap, "docs/events.md описывает все обязательные события", "в docs/events.md нет событий: " + ", ".join(gap), "WARN")
 
     # 10. Стиль
     css = "\n".join(read(f).lower() for f in site_files({".css"}))
@@ -359,10 +415,30 @@ def main():
     readme = read(ROOT / "README.md") if (ROOT / "README.md").exists() else ""
     check(".vercel.app" in readme, "в README есть адрес .vercel.app", "в README нет адреса вида <имя>.vercel.app")
     check("Пробелы" in readme, "в README есть раздел «Пробелы»", "в README нет раздела «Пробелы»", "WARN")
+    check("Не получилось" in readme and "Нейросеть использовалась для" in readme,
+          "в README есть две финальные строки (ТЗ 11)", "в README нет строк «Не получилось: …» и «Нейросеть использовалась для: …»", "WARN")
+    check((ROOT / "screens/lighthouse").is_dir() and any((ROOT / "screens/lighthouse").iterdir()),
+          "есть снимок Lighthouse в screens/lighthouse/", "нет снимка Lighthouse в screens/lighthouse/ (ТЗ 11)", "WARN")
     prompts = read(ROOT / "docs/prompts.md") if (ROOT / "docs/prompts.md").exists() else ""
     n = len(re.findall(r"^## \d+", prompts, re.M))
-    check(n >= 3, f"в журнале запросов {n} записей", f"в docs/prompts.md {n} записей: нет записи о работе исполнителя", "WARN")
+    check(n >= 11, f"в журнале запросов {n} записей", f"в docs/prompts.md {n} записей; ТЗ требует запрос на структуру, на каждую страницу и на исправления (не меньше 11)", "WARN")
+    check("нструмент" in prompts, "в журнале указан инструмент и версия", "в docs/prompts.md не указаны инструмент и версия нейросети (ТЗ 3.1)", "WARN")
+    try:
+        import subprocess
+        out = subprocess.run(["git", "rev-list", "--count", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=10)
+        commits = int(out.stdout.strip()) if out.returncode == 0 else None
+    except Exception:
+        commits = None
+    if commits is not None:
+        check(commits >= 10, f"коммитов в истории: {commits}", f"коммитов {commits}, ТЗ требует не меньше 10 (3.4)", "WARN")
     data = read(ROOT / "js/data.js") if (ROOT / "js/data.js").exists() else ""
+    bare = re.sub(r"/\*.*?\*/", "", data, flags=re.S)
+    bare = re.sub(r"//[^\n]*", "", bare)
+    for what, key, need in (("позиций меню", "category:", 20), ("сортов зерна", "country:", 6),
+                            ("преподавателей", "experience:", 3), ("вопросов FAQ", "q:", 5)):
+        have = len(re.findall(r"\b" + re.escape(key), bare))
+        check(have >= need, f"в data.js {what}: {have} (нужно {need})",
+              f"в data.js {what}: {have}, по Приложению А нужно {need}", "WARN")
     todo = data.count("TODO(заказчик)")
     check(todo == 0, "в data.js нет TODO(заказчик)", f"в data.js осталось {todo} пометок TODO(заказчик): пробелы данных", "WARN")
 
