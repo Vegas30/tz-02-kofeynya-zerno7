@@ -6,7 +6,7 @@ tags: [images, zerno7]
 
 # Источники изображений
 
-Требование ТЗ: фотографии сгенерированы нейросетью или взяты с бесплатных фотостоков с коммерческой лицензией, источник каждой указан здесь. Проверка `tools/check.py`: каждый файл из `assets/` с расширением `.webp`, `.jpg`, `.jpeg` должен встречаться в таблице.
+Требование ТЗ: фотографии сгенерированы нейросетью или взяты с бесплатных фотостоков с коммерческой лицензией, источник каждой указан здесь. Проверка `tools/check.py`: каждый файл `.webp`, `.jpg`, `.jpeg` из `img/` должен встречаться в таблице.
 
 Правила:
 
@@ -17,11 +17,39 @@ tags: [images, zerno7]
 
 | Файл | Где используется | Происхождение | Источник и лицензия | Alt-текст |
 |---|---|---|---|---|
+| img/hero.webp | index.html, первый экран | нейросеть | промпт `hero` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Бариста наливает молоко в чашку и рисует на кофе сердце |
+| img/class-01.webp | index.html, галерея | нейросеть | промпт `class-01` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Учебный класс школы бариста: три профессиональные кофемашины и группа учеников |
+| img/class-02.webp | index.html, галерея | нейросеть | промпт `class-02` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Преподаватель показывает ученикам, как работать с кофемашиной |
+| img/class-03.webp | index.html, галерея | нейросеть | промпт `class-03` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Руки ученика трамбуют молотый кофе в холдере |
+| img/class-04.webp | index.html, галерея | нейросеть | промпт `class-04` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Ученик взбивает молоко в питчере паровым краном кофемашины |
+| img/class-05.webp | index.html, галерея | нейросеть | промпт `class-05` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Три чашки с рисунками на молочной пене: сердце, тюльпан и розетта |
+| img/class-06.webp | index.html, галерея | нейросеть | промпт `class-06` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Ученики пробуют кофе, приготовленный воронкой и в кемексе |
+| img/teacher-01.webp | index.html, карточка преподавателя | нейросеть | промпт `teacher-01` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Максим Резников, преподаватель курса «Бариста с нуля» |
+| img/teacher-02.webp | index.html, карточка преподавателя | нейросеть | промпт `teacher-02` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Алина Тарасова, преподаватель латте-арта |
+| img/teacher-03.webp | index.html, карточка преподавателя | нейросеть | промпт `teacher-03` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Игорь Воронцов, обжарщик и преподаватель альтернативного заваривания |
+| img/guide-step-1.webp | latte-guide.html, шаг 1 | нейросеть | промпт `guide-step-1` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Шаг 1: свежий эспрессо с золотистой пенкой в белой чашке |
+| img/guide-step-2.webp | latte-guide.html, шаг 2 | нейросеть | промпт `guide-step-2` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Шаг 2: взбитое молоко в питчере с гладкой микропенкой |
+| img/guide-step-3.webp | latte-guide.html, шаг 3 | нейросеть | промпт `guide-step-3` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Шаг 3: молоко наливают в слегка наклонённую чашку |
+| img/guide-step-4.webp | latte-guide.html, шаг 4 | нейросеть | промпт `guide-step-4` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Шаг 4: питчер у самой поверхности, на кофе появляется белый круг |
+| img/guide-step-5.webp | latte-guide.html, шаг 5 | нейросеть | промпт `guide-step-5` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Шаг 5: тонкая линия через белое пятно, готовое сердце на капучино |
+| img/og-main.jpg | index, courses, menu, contacts, thanks, privacy, 404 (og:image) | нейросеть | промпт `og-main` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Чашка капучино с сердцем на деревянном столе и кофейные зёрна |
+| img/beans-light.webp | beans.html, карточки светлой обжарки и «Как выбрать обжарку» | нейросеть | промпт `beans-light` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Зёрна светлой обжарки, высыпанные из бумажного пакета |
+| img/beans-medium.webp | beans.html, карточки средней обжарки и «Как выбрать обжарку» | нейросеть | промпт `beans-medium` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Зёрна средней обжарки, высыпанные из бумажного пакета |
+| img/beans-dark.webp | beans.html, карточки тёмной обжарки и «Как выбрать обжарку» | нейросеть | промпт `beans-dark` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Зёрна тёмной обжарки с блестящей поверхностью, высыпанные из бумажного пакета |
+| img/roastery.webp | beans.html, баннер страницы | нейросеть | промпт `roastery` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Небольшая обжарочная машина, деревянный поднос со свежеобжаренным зерном и мешки с зелёным кофе |
+| img/cafe-interior.webp | menu.html, баннер страницы и блок «Карта и адрес» | нейросеть | промпт `cafe-interior` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Уютный зал кофейни со светлыми столами и баром |
+| img/course-barista.webp | courses.html и index.html, карточка «Бариста с нуля» | нейросеть | промпт `course-barista` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Бариста готовит эспрессо на профессиональной кофемашине |
+| img/course-latte-art.webp | courses.html и index.html, карточка «Латте-арт» | нейросеть | промпт `course-latte-art` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Чашка с рисунком в форме сердца на молочной пене |
+| img/course-alternative.webp | courses.html и index.html, карточка «Альтернативное заваривание» | нейросеть | промпт `course-alternative` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Воронка, кемекс и аэропресс на деревянном подносе |
+| img/course-corporate.webp | courses.html и index.html, карточка «Корпоративный мастер-класс» | нейросеть | промпт `course-corporate` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Команда из десяти человек на мастер-классе у барной стойки |
+| img/og-latte-guide.jpg | latte-guide.html (og:image) | нейросеть | промпт `og-latte-guide` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Капучино с рисунком в форме сердца, рядом питчер |
+| img/og-beans.jpg | beans.html (og:image) | нейросеть | промпт `og-beans` из [image-prompts.md](image-prompts.md); модель и дату допишите после выбора | Кофейные зёрна в бумажном пакете и совок |
+| img/favicon.svg | значок сайта и логотип в шапке | нарисован вручную | собственный SVG проекта | Чашка кофе в фирменных цветах |
 
 Пример формата строки (не копировать как есть):
 
 ```
-| assets/img/class-1.webp | index.html, галерея | нейросеть | «<модель>», <дата>, промпт: «<текст>» | Учебный класс с профессиональными кофемашинами |
+| img/class-1.webp | index.html, галерея | нейросеть | «<модель>», <дата>, промпт: «<текст>» | Учебный класс с профессиональными кофемашинами |
 ```
 
-Related: [spec.md](spec.md), [tasks.md](tasks.md)
+Related: [spec.md](spec.md), [tasks.md](tasks.md), [image-prompts.md](image-prompts.md)
