@@ -2,28 +2,32 @@
 """
 Подготовка картинок для сайта «Зерно 7».
 
-Берёт то, что выдали GPT или Gemini (PNG, JPG, WebP любого размера), обрезает по центру до нужной
+Берёт то, что выдали GPT или Gemini (PNG, JPEG/JFIF, WebP любого размера), обрезает по центру до нужной
 пропорции, уменьшает до размера из таблицы, сжимает так, чтобы файл был не больше 300 КБ (требование ТЗ 3.3),
-и сохраняет в WebP (для превью ссылок og-*  в JPEG).
+и сохраняет в WebP (для превью ссылок og-* в JPEG строго 1200×630).
+Исходники не изменяются. Неполный набор или ошибка обработки дают код выхода 1.
 
-Запуск:
-    pip install pillow
-    python tools/prepare_images.py raw/gpt out/gpt
-    python tools/prepare_images.py raw/gemini out/gemini
+Запуск из корня проекта (Pillow устанавливается в локальную виртуальную среду):
+    python -I -m venv .venv
+    .venv/Scripts/python.exe -I -m pip install Pillow
+    .venv/Scripts/python.exe -I tools/prepare_images.py raw/gpt out/gpt
+    .venv/Scripts/python.exe -I tools/prepare_images.py raw/gemini out/gemini
 
 Имя исходного файла должно совпадать с идентификатором из docs/image-prompts.md, расширение любое:
 hero.png, class-01.jpg, teacher-02.webp и т. д. Файлы с неизвестными именами пропускаются с предупреждением.
 Важное в кадре держите ближе к центру: края обрезаются.
 """
 import sys
+from io import BytesIO
 from pathlib import Path
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
-    sys.exit("Нужна библиотека Pillow: pip install pillow")
+    sys.exit("Нужна библиотека Pillow: установите её в .venv по инструкции в README.md")
 
 LIMIT = 280 * 1024  # запас до лимита ТЗ в 300 КБ
+SOURCE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".jfif", ".webp"}
 
 # идентификатор: (ширина, высота, формат)
 SPECS = {
@@ -55,53 +59,83 @@ def crop_to_ratio(img, w, h):
 
 
 def save_under_limit(img, path, fmt):
-    """Подбирает качество от высокого к низкому, пока файл не станет не больше LIMIT. Возвращает (качество, масштаб)."""
-    scale = 1.0
-    while True:
-        work = img if scale == 1.0 else img.resize((int(img.width * scale), int(img.height * scale)), Image.LANCZOS)
-        for quality in (88, 82, 76, 70, 64, 58, 52, 46, 40):
-            if fmt == "webp":
-                work.save(path, "WEBP", quality=quality, method=6)
-            else:
-                work.save(path, "JPEG", quality=quality, optimize=True, progressive=True)
-            if path.stat().st_size <= LIMIT:
-                return quality, scale
-        scale -= 0.1  # даже на минимальном качестве не влезло: уменьшаем размер
-        if scale < 0.4:
-            return 40, scale
+    """Подбирает сжатие; пишет только допустимый файл, не уменьшает размер OG."""
+    scales = (1.0,) if fmt == "jpg" else (1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4)
+    for scale in scales:
+        size = (max(1, int(img.width * scale)), max(1, int(img.height * scale)))
+        work = img if scale == 1.0 else img.resize(size, Image.Resampling.LANCZOS)
+        try:
+            for quality in (88, 82, 76, 70, 64, 58, 52, 46, 40):
+                with BytesIO() as buffer:
+                    if fmt == "webp":
+                        work.save(buffer, "WEBP", quality=quality, method=6)
+                    else:
+                        work.save(buffer, "JPEG", quality=quality, optimize=True, progressive=True)
+                    if buffer.tell() <= LIMIT:
+                        path.write_bytes(buffer.getvalue())
+                        return quality, scale
+        finally:
+            if work is not img:
+                work.close()
+    raise ValueError(f"не удалось уложить {path.name} в {LIMIT // 1024} КБ")
 
 
 def main():
+    """Обрабатывает известные изображения и сообщает о неполном или испорченном наборе."""
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     src, dst = Path(sys.argv[1]), Path(sys.argv[2])
     if not src.is_dir():
         sys.exit(f"Нет папки {src}")
+    if src.resolve() == dst.resolve():
+        sys.exit("Папки исходников и результата должны различаться")
     dst.mkdir(parents=True, exist_ok=True)
-    done = set()
-    print(f"{'файл':<22}{'размер':<12}{'КБ':>5}  качество")
-    for f in sorted(src.iterdir()):
-        if not f.is_file() or f.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+    done, seen = set(), set()
+    errors = False
+    print(f"{'файл':<26}{'размер':<12}{'КБ':>5}  качество")
+    for source in sorted(src.iterdir()):
+        if not source.is_file() or source.suffix.lower() not in SOURCE_EXTENSIONS:
             continue
-        spec = SPECS.get(f.stem)
+        spec = SPECS.get(source.stem)
         if spec is None:
-            print(f"{f.name:<22}пропущен: имя не из docs/image-prompts.md")
+            print(f"{source.name:<26}пропущен: имя не из docs/image-prompts.md")
             continue
+        if source.stem in seen:
+            print(f"{source.name:<26}ошибка: несколько исходников с одним идентификатором")
+            errors = True
+            continue
+        seen.add(source.stem)
         w, h, fmt = spec
-        img = Image.open(f).convert("RGB")
-        img = crop_to_ratio(img, w, h)
-        if img.width > w:  # увеличивать не нужно: если исходник меньше, оставляем как есть
-            img = img.resize((w, h), Image.LANCZOS)
-        out = dst / f"{f.stem}.{fmt}"
-        quality, scale = save_under_limit(img, out, fmt)
-        note = f"{quality}" + (f", масштаб {scale:.1f}: исходник слишком шумный, перегенерируйте" if scale < 1 else "")
-        small = "  (исходник заметно меньше нужного)" if Image.open(f).width < 0.8 * w else ""
-        print(f"{out.name:<22}{img.width}x{img.height:<6}{out.stat().st_size // 1024:>5}  {note}{small}")
-        done.add(f.stem)
-    missing = [k for k in SPECS if k not in done]
+        out = dst / f"{source.stem}.{fmt}"
+        try:
+            with Image.open(source) as original:
+                with ImageOps.exif_transpose(original) as oriented:
+                    with oriented.convert("RGB") as img:
+                        cropped = crop_to_ratio(img, w, h)
+            with cropped:
+                if fmt == "jpg" and (cropped.width < w or cropped.height < h):
+                    raise ValueError("для OG нужен исходник не меньше 1200×630 после обрезки")
+                small = cropped.width < 0.8 * w or cropped.height < 0.8 * h
+                size = (w, h) if cropped.width > w else cropped.size
+                with cropped.resize(size, Image.Resampling.LANCZOS) as prepared:
+                    quality, scale = save_under_limit(prepared, out, fmt)
+            with Image.open(out) as result:
+                actual_w, actual_h = result.size
+            note = str(quality)
+            if scale < 1:
+                note += f", масштаб {scale:.1f}: исходник слишком шумный, перегенерируйте"
+            if small:
+                note += "  (исходник заметно меньше нужного)"
+            print(f"{out.name:<26}{f'{actual_w}x{actual_h}':<12}{out.stat().st_size / 1024:>5.1f}  {note}")
+            done.add(source.stem)
+        except (OSError, ValueError) as error:
+            print(f"{source.name:<26}ошибка: {error}")
+            errors = True
+    missing = [key for key in SPECS if key not in done]
     if missing:
         print(f"\nНе хватает ({len(missing)}): " + ", ".join(missing))
+    return 1 if errors or missing else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

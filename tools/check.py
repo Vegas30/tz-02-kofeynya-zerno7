@@ -36,7 +36,9 @@ FORM_FIELDS = ["name", "phone", "email", "course", "start_month", "request_id",
                "utm_source", "utm_medium", "utm_campaign", "utm_content"]
 BRAND_COLORS = ["#7a4a2a", "#f6efe6", "#24211f"]
 MAX_IMG = 300 * 1024
-SKIP_DIRS = {".git", "docs", "tools", "node_modules", ".obsidian", ".vercel", "screens", "apps-script"}
+# Исходники, результаты подготовки и окружение Python не входят в опубликованный сайт.
+SKIP_DIRS = {".git", "docs", "tools", "node_modules", ".obsidian", ".vercel", "screens", "apps-script",
+             "raw", "out", ".venv", "__pycache__"}
 
 results = []  # (уровень, сообщение)
 
